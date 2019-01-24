@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
-
 import requests
 from html.parser import HTMLParser
+
+mobile_print_authority = "mobilprint.uit.no"
 
 
 class PrintJobExtractor(HTMLParser):
@@ -29,18 +30,22 @@ class PrintJobExtractor(HTMLParser):
             self.attr_store_value("PageTo", attrs)
 
 
+def build_uri(path):
+    return "https://{}/{}".format(mobile_print_authority, path)
+
+
 def login(username, password):
     login_info = {"LoginAction": "login", "Username": username,
                   "Password": password}
-    return requests.post("https://mobilprint.uit.no/login.cfm",
+    return requests.post(build_uri("login.cfm"),
                          data=login_info).history[0].cookies
 
 
 def upload_file(filename, cookies):
     file = {"FileToPrint": open(filename, "rb")}
     form_data = {"type": "file"}
-    return requests.post("https://mobilprint.uit.no/webprint.cfm",
-                         data=form_data, files=file, cookies=cookies)
+    return requests.post(build_uri("webprint.cfm"), data=form_data, files=file,
+                         cookies=cookies)
 
 
 def get_print_job_details(html, cookies):
@@ -50,7 +55,7 @@ def get_print_job_details(html, cookies):
 
     print(".", end="", flush=True)
     while jid is None and pid is None:
-        res = requests.get("https://mobilprint.uit.no/index.cfm",
+        res = requests.get(build_uri("index.cfm"),
                            cookies=cookies)
         extractor.feed(res.text)
         jid, pid, page_to = extractor.get_print_job_state()
@@ -62,8 +67,8 @@ def print_job(jid, pid, page_to, cookies):
         form_data = {"JID": jid, "PID": pid, "NumberOfCopies": 1,
                      "PageFrom": 1, "PageTo": page_to, "Duplex": 2,
                      "method": "printjob"}
-        return requests.post("https://mobilprint.uit.no/afunctions.cfm",
-                             data=form_data, cookies=cookies)
+        return requests.post(build_uri("afunctions.cfm"), data=form_data,
+                             cookies=cookies)
 
 
 if __name__ == "__main__":
